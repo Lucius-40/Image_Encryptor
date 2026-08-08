@@ -1,0 +1,4 @@
+pip install -r requirements.txt
+python -m pytest tests/test_drpe.py -v
+python scripts/week1_demo.py                # synthetic test pattern
+python scripts/week1_demo.py app_assets/image.png  # or your own image
