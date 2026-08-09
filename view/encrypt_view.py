@@ -1,0 +1,135 @@
+import streamlit as st
+import numpy as np
+import cv2
+import io
+import matplotlib.pyplot as plt
+
+from core.drpe import generate_random_phase_mask, encrypt
+from core.utils import ciphertext_magnitude_for_display, to_uint8
+
+def plot_behind_the_scenes(image_norm, key1, cipher):
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+    
+    axes[0].imshow(np.angle(key1), cmap='hsv')
+    axes[0].set_title("Matrix: Key 1 Phase Angles")
+    axes[0].axis("off")
+    
+    F = np.fft.fftshift(np.fft.fft2(image_norm))
+    axes[1].imshow(20 * np.log(np.abs(F) + 1), cmap='gray')
+    axes[1].set_title("Original Frequency Spectrum")
+    axes[1].axis("off")
+    
+    C = np.fft.fftshift(np.fft.fft2(cipher))
+    axes[2].imshow(20 * np.log(np.abs(C) + 1), cmap='gray')
+    axes[2].set_title("Ciphertext Frequency Spectrum")
+    axes[2].axis("off")
+    
+    return fig
+
+def render_encrypt_tab():
+    st.header("1. Encrypt an Image")
+    uploaded_img = st.file_uploader("Upload Image (JPG/PNG)", type=['png', 'jpg', 'jpeg'])
+    
+    # Initialize the session state for holding our results on the screen
+    if 'encryption_done' not in st.session_state:
+        st.session_state['encryption_done'] = False
+
+    st.subheader("Security Settings")
+    key_mode = st.radio(
+        "Select Key Generation Method:", 
+        ["Secure Mode (Export Key File)", "Demo Mode (Manual PIN)"], 
+        horizontal=True
+    )
+    
+    pin = None
+    if key_mode == "Demo Mode (Manual PIN)":
+        pin = st.number_input("Enter a numeric PIN (e.g., 4096)", min_value=0, max_value=999999, value=4096)
+        st.caption("⚠️ Using a low-entropy PIN makes the encryption mathematically vulnerable to brute-force attacks. Use only for fast presentations.")
+
+    # The toggle is now independent, meaning you can flip it on and off AFTER encrypting!
+    show_math = st.toggle("🔍 Show Behind the Scenes (Signal Processing)")
+    
+    if uploaded_img:
+        # Load the image
+        file_bytes = np.asarray(bytearray(uploaded_img.read()), dtype=np.uint8)
+        img = cv2.imdecode(file_bytes, cv2.IMREAD_GRAYSCALE)
+        
+        orig_shape = img.shape
+        img_resized = cv2.resize(img, (256, 256))
+        img_norm = img_resized.astype(np.float64) / 255.0
+        
+        # 1. THE CALCULATION BLOCK (Runs once when clicked)
+        if st.button("Generate Keys & Encrypt", type="primary"):
+            if key_mode == "Demo Mode (Manual PIN)":
+                k1 = generate_random_phase_mask(img_norm.shape, seed=pin)
+                k2 = generate_random_phase_mask(img_norm.shape, seed=pin + 1)
+            else:
+                k1 = generate_random_phase_mask(img_norm.shape)
+                k2 = generate_random_phase_mask(img_norm.shape)
+                
+            cipher = encrypt(img_norm, k1, k2)
+            
+            # Save everything to session state so it doesn't vanish
+            st.session_state['enc_img_norm'] = img_norm
+            st.session_state['enc_k1'] = k1
+            st.session_state['enc_k2'] = k2
+            st.session_state['enc_cipher'] = cipher
+            st.session_state['enc_orig_shape'] = orig_shape
+            st.session_state['enc_key_mode'] = key_mode
+            st.session_state['enc_pin'] = pin
+            
+            # Flip the flag to True!
+            st.session_state['encryption_done'] = True
+
+        # 2. THE DISPLAY BLOCK (Stays on screen as long as encryption_done is True)
+        if st.session_state['encryption_done']:
+            # Pull our saved data out of memory
+            c_img_norm = st.session_state['enc_img_norm']
+            c_k1 = st.session_state['enc_k1']
+            c_k2 = st.session_state['enc_k2']
+            c_cipher = st.session_state['enc_cipher']
+            c_shape = st.session_state['enc_orig_shape']
+            c_mode = st.session_state['enc_key_mode']
+            c_pin = st.session_state['enc_pin']
+
+            # Display Visuals
+            col1, col2 = st.columns(2)
+            with col1:
+                st.image(to_uint8(c_img_norm), caption="Original Image", use_container_width=True)
+            with col2:
+                display_cipher = to_uint8(ciphertext_magnitude_for_display(c_cipher))
+                st.image(display_cipher, caption="Ciphertext (Visual Magnitude)", use_container_width=True)
+            
+            # Display Math (You can now freely toggle this without losing the image!)
+            if show_math:
+                st.divider()
+                st.pyplot(plot_behind_the_scenes(c_img_norm, c_k1, c_cipher))
+            
+            # Prepare Downloads
+            export_data = {'cipher': c_cipher, 'orig_shape': c_shape}
+            buffer = io.BytesIO()
+            np.save(buffer, export_data, allow_pickle=True)
+            
+            st.success("Encryption complete! Download your files below.")
+            
+            # Render Download Buttons
+            dl_col1, dl_col2 = st.columns(2)
+            with dl_col1:
+                st.download_button(
+                    "🔒 Download Encrypted Data (.npy)", 
+                    data=buffer.getvalue(), 
+                    file_name="secret_data.npy"
+                )
+            
+            with dl_col2:
+                if c_mode == "Secure Mode (Export Key File)":
+                    key_data = {'key1': c_k1, 'key2': c_k2}
+                    key_buffer = io.BytesIO()
+                    np.save(key_buffer, key_data, allow_pickle=True)
+                    st.download_button(
+                        "🔑 Download Encryption Keys (.npy)", 
+                        data=key_buffer.getvalue(), 
+                        file_name="keys.npy"
+                    )
+                else:
+                    st.info(f"Remember your PIN ({c_pin}) to decrypt this file.")
