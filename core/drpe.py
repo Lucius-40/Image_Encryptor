@@ -8,6 +8,20 @@ def generate_random_phase_mask(shape, seed=None):
     return mask
 
 
+def generate_perturbed_key(original_key, error_magnitude):
+    """
+    Corrupts an existing phase mask by multiplying it with a noise phase mask.
+    This works perfectly regardless of whether a seed or pure entropy was used.
+    """
+    #Generate Gaussian noise 
+    noise = np.random.normal(loc=0.0, scale=error_magnitude, size=original_key.shape)
+    
+    #Wrap the noise in a complex phase mask
+    noise_mask = np.exp(1j * 2 * np.pi * noise)
+    
+    #Apply the noise to the original key
+    return original_key * noise_mask
+
 def encrypt(image, key1, key2):
     
     image = image.astype(np.complex128)
