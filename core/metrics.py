@@ -1,4 +1,10 @@
+import io
 import numpy as np
+from PIL import Image
+
+from core.drpe import decrypt
+
+
 from core.drpe import decrypt, generate_perturbed_key
 def calculate_psnr(original, recovered):
     """
@@ -37,3 +43,78 @@ def run_sensitivity_batch(orig_img, cipher, k1, k2, steps=50):
         psnr_values.append(psnr)
         
     return magnitudes, psnr_values
+
+def add_gaussian_noise(cipher, sigma):
+    """Add complex Gaussian noise to the ciphertext."""
+    noise = sigma * (
+        np.random.randn(*cipher.shape)
+        + 1j * np.random.randn(*cipher.shape)
+    )
+    return cipher + noise
+
+def quantize_complex(cipher, levels=256):
+    """
+    Uniform quantization of the complex ciphertext.
+    Larger levels = finer quantization = less damage.
+    """
+    magnitude = np.abs(cipher)
+    max_mag = magnitude.max()
+    if max_mag == 0:
+        return cipher.copy()
+    step = (2 * max_mag) / levels
+    return np.round(cipher / step) * step
+
+
+def jpeg_compress_complex(cipher, quality=50):
+    """
+    Simulate JPEG compression on the ciphertext magnitude only.
+    Keep phase intact so decryption remains valid as a structured corruption.
+    """
+    mag = np.abs(cipher)
+    phase = np.angle(cipher)
+
+    mag_min = mag.min()
+    mag_max = mag.max()
+    if mag_max == mag_min:
+        return cipher.copy()
+
+    mag_norm = (mag - mag_min) / (mag_max - mag_min + 1e-8)
+    mag_u8 = np.uint8(np.clip(mag_norm, 0, 1) * 255)
+
+    buffer = io.BytesIO()
+    Image.fromarray(mag_u8).save(buffer, format="JPEG", quality=quality)
+    buffer.seek(0)
+
+    mag_jpeg = np.array(Image.open(buffer).convert("L")) / 255.0
+    mag_restored = mag_jpeg * (mag_max - mag_min) + mag_min
+    return mag_restored * np.exp(1j * phase)
+
+
+def run_robustness_batch(orig_img, cipher, k1, k2, mode="noise", levels=None):
+    """
+    mode: 'noise', 'jpeg', or 'quant'
+    returns (severity_values, psnr_values)
+    """
+    if levels is None:
+        levels = np.linspace(0.01, 0.5, 20) if mode == "noise" else \
+                 np.array([10, 20, 30, 40, 50, 60, 70, 80, 90]) if mode == "jpeg" else \
+                 np.array([8, 16, 32, 64, 128, 256, 512, 1024])
+
+    severity = []
+    psnr_values = []
+
+    for value in levels:
+        if mode == "noise":
+            corrupted = add_gaussian_noise(cipher, value)
+        elif mode == "jpeg":
+            corrupted = jpeg_compress_complex(cipher, quality=int(value))
+        elif mode == "quant":
+            corrupted = quantize_complex(cipher, levels=int(value))
+        else:
+            raise ValueError("Unknown robustness mode")
+
+        recovered = np.clip(decrypt(corrupted, k1, k2), 0, 1)
+        psnr_values.append(calculate_psnr(orig_img, recovered))
+        severity.append(value)
+
+    return np.array(severity), np.array(psnr_values)
