@@ -5,7 +5,7 @@ import io
 import matplotlib.pyplot as plt
 
 from core.drpe import generate_random_phase_mask, encrypt
-from core.utils import ciphertext_magnitude_for_display, to_uint8
+from core.utils import ciphertext_magnitude_for_display, to_uint8, compute_target_size
 
 def plot_behind_the_scenes(image_norm, key1, cipher):
     fig, axes = plt.subplots(1, 3, figsize=(15, 4))
@@ -55,7 +55,8 @@ def render_encrypt_tab():
         img = cv2.imdecode(file_bytes, cv2.IMREAD_GRAYSCALE)
         
         orig_shape = img.shape
-        img_resized = cv2.resize(img, (256, 256))
+        target_w, target_h = compute_target_size(*orig_shape, max_dim=768)
+        img_resized = cv2.resize(img, (target_w, target_h))
         img_norm = img_resized.astype(np.float64) / 255.0
         
         # 1. THE CALCULATION BLOCK (Runs once when clicked)

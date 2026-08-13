@@ -54,10 +54,10 @@ def main():
         ax.axis("off")
 
     plt.tight_layout()
-    out_dir = os.path.join(os.path.dirname(__file__), "..", "app_assets", "demo_ouputs")
+    out_dir = os.path.join(os.path.dirname(__file__), "..", "app_assets", "demo_outputs")
     os.makedirs(out_dir, exist_ok=True)
 
-    out_path = os.path.join(out_dir, "demo.png")
+    out_path = os.path.join(out_dir, "demo1.png")
     plt.savefig(out_path, dpi=150)
     print(f"Saved figure to {out_path}")
 
