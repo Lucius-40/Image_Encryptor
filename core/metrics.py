@@ -3,9 +3,8 @@ import numpy as np
 from PIL import Image
 
 from core.drpe import decrypt
-
-
 from core.drpe import decrypt, generate_perturbed_key
+from core.audio_drpe import decrypt_audio, perturb_audio_key
 def calculate_psnr(original, recovered):
     """
     Calculates the psnr btn 2 images
@@ -22,6 +21,26 @@ def calculate_psnr(original, recovered):
 
     psnr=20*np.log10(max_pixel/np.sqrt(mse))
     return psnr
+
+
+def calculate_audio_mse(original, recovered):
+    return np.mean((original - recovered) ** 2)
+
+
+def calculate_audio_snr_db(original, recovered, eps=1e-12):
+    signal_power = np.mean(original ** 2)
+    noise_power = np.mean((original - recovered) ** 2)
+    if noise_power <= eps:
+        return float('inf')
+    return 10 * np.log10((signal_power + eps) / (noise_power + eps))
+
+
+def calculate_audio_correlation(original, recovered, eps=1e-12):
+    orig = np.asarray(original)
+    rec = np.asarray(recovered)
+    if np.std(orig) <= eps or np.std(rec) <= eps:
+        return 0.0
+    return float(np.corrcoef(orig, rec)[0, 1])
 
 
 
@@ -43,6 +62,27 @@ def run_sensitivity_batch(orig_img, cipher, k1, k2, steps=50):
         psnr_values.append(psnr)
         
     return magnitudes, psnr_values
+
+
+def run_audio_sensitivity_batch(orig_audio, cipher, k1, k2, steps=50, max_sigma=0.5):
+    magnitudes = np.linspace(0.0, max_sigma, steps)
+    snr_values = []
+    mse_values = []
+    corr_values = []
+
+    for mag in magnitudes:
+        test_k2 = perturb_audio_key(k2, error_magnitude=mag)
+        recovered = decrypt_audio(cipher, k1, test_k2)
+
+        snr_db = calculate_audio_snr_db(orig_audio, recovered)
+        if snr_db == float('inf'):
+            snr_db = 120.0
+
+        snr_values.append(snr_db)
+        mse_values.append(calculate_audio_mse(orig_audio, recovered))
+        corr_values.append(calculate_audio_correlation(orig_audio, recovered))
+
+    return magnitudes, np.array(snr_values), np.array(mse_values), np.array(corr_values)
 
 def add_gaussian_noise(cipher, sigma):
     """Add complex Gaussian noise to the ciphertext."""
