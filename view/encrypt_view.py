@@ -7,23 +7,79 @@ import matplotlib.pyplot as plt
 from core.drpe import generate_random_phase_mask, encrypt
 from core.utils import ciphertext_magnitude_for_display, to_uint8, compute_target_size
 
+def _contrast_stretch(values, low=1, high=99):
+    minimum, maximum = np.percentile(values, [low, high])
+    return np.clip(values, minimum, maximum)
+
 def plot_behind_the_scenes(image_norm, key1, cipher):
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4))
-    
-    axes[0].imshow(np.angle(key1), cmap='hsv')
-    axes[0].set_title("Matrix: Key 1 Phase Angles")
-    axes[0].axis("off")
-    
-    F = np.fft.fftshift(np.fft.fft2(image_norm))
-    axes[1].imshow(20 * np.log(np.abs(F) + 1), cmap='gray')
-    axes[1].set_title("Original Frequency Spectrum")
-    axes[1].axis("off")
-    
-    C = np.fft.fftshift(np.fft.fft2(cipher))
-    axes[2].imshow(20 * np.log(np.abs(C) + 1), cmap='gray')
-    axes[2].set_title("Ciphertext Frequency Spectrum")
-    axes[2].axis("off")
-    
+    fig, axes = plt.subplots(
+        1,
+        3,
+        figsize=(15, 4.5),
+        facecolor="#030805",
+        constrained_layout=True,
+    )
+
+    fig.patch.set_edgecolor("#123D22")
+    fig.patch.set_linewidth(2)
+
+    panel_titles = [
+        "Key 1 Phase Angles",
+        "Original Frequency Spectrum",
+        "Ciphertext Frequency Spectrum",
+    ]
+
+    # Key phase image
+    key_phase = np.angle(key1)
+    axes[0].imshow(
+        key_phase,
+        cmap="hsv",
+        vmin=-np.pi,
+        vmax=np.pi,
+        interpolation="nearest",
+    )
+
+    # Original frequency spectrum
+    original_frequency = np.fft.fftshift(np.fft.fft2(image_norm))
+    original_spectrum = _contrast_stretch(
+        np.log1p(np.abs(original_frequency))
+    )
+    axes[1].imshow(
+        original_spectrum,
+        cmap="magma",
+        interpolation="nearest",
+    )
+
+    # Ciphertext frequency spectrum
+    cipher_frequency = np.fft.fftshift(np.fft.fft2(cipher))
+    cipher_spectrum = _contrast_stretch(
+        np.log1p(np.abs(cipher_frequency))
+    )
+    axes[2].imshow(
+        cipher_spectrum,
+        cmap="magma",
+        interpolation="nearest",
+    )
+
+    for axis, title in zip(axes, panel_titles):
+        axis.set_facecolor("#07150D")
+        axis.set_title(
+            title,
+            color="#F2FFF0",
+            fontsize=13,
+            fontweight="bold",
+            pad=12,
+        )
+
+        # Hide ticks while preserving the panel border.
+        axis.set_xticks([])
+        axis.set_yticks([])
+
+        for spine in axis.spines.values():
+            spine.set_visible(True)
+            spine.set_color("#39FF14")
+            spine.set_linewidth(1.5)
+
     return fig
 
 def render_encrypt_tab():
@@ -100,7 +156,10 @@ def render_encrypt_tab():
             
             if show_math:
                 st.divider()
-                st.pyplot(plot_behind_the_scenes(c_img_norm, c_k1, c_cipher))
+                st.pyplot(
+                    plot_behind_the_scenes(c_img_norm, c_k1, c_cipher),
+                    use_container_width=True,
+                )
             
             export_data = {'cipher': c_cipher, 'orig_shape': c_shape}
             buffer = io.BytesIO()
