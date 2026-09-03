@@ -163,7 +163,11 @@ def render_audio_encrypt():
                         max_sigma=0.5,
                     )
                     fig = plot_audio_sensitivity_curve(mags, snr_values)
-                    st.pyplot(fig)
+                    st.plotly_chart(
+                        fig,
+                        use_container_width=True,
+                        config={"displaylogo": False},
+                    )
 
                     st.caption(
                         f"Final point at sigma={mags[-1]:.2f}: "

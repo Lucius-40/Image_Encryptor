@@ -55,7 +55,7 @@ def render_analysis_tab():
         with st.spinner(f"Running {batch_steps} decryptions..."):
             magnitudes, psnr_values = run_sensitivity_batch(orig_img, cipher, k1, k2, steps=batch_steps)
             fig = plot_sensitivity_curve(magnitudes, psnr_values)
-            st.pyplot(fig)
+            st.plotly_chart(fig, use_container_width=True)
 
     st.divider()
     st.header("4. Robustness to Ciphertext Corruption")
@@ -87,7 +87,7 @@ def render_analysis_tab():
             orig_img, cipher, k1, k2, mode=mode, levels=levels
         )
         fig = plot_robustness_curve(severity, psnr_values, title)
-        st.pyplot(fig)
+        st.plotly_chart(fig, use_container_width=True)
 
     st.subheader("Three Corruption Stages and Their Decryption")
 
