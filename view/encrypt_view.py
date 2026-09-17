@@ -16,11 +16,11 @@ def plot_behind_the_scenes(image_norm, key1, cipher):
         1,
         3,
         figsize=(15, 4.5),
-        facecolor="#030805",
+        facecolor="#FFFFFF",
         constrained_layout=True,
     )
 
-    fig.patch.set_edgecolor("#123D22")
+    fig.patch.set_edgecolor("#E2E8F0")
     fig.patch.set_linewidth(2)
 
     panel_titles = [
@@ -62,10 +62,10 @@ def plot_behind_the_scenes(image_norm, key1, cipher):
     )
 
     for axis, title in zip(axes, panel_titles):
-        axis.set_facecolor("#07150D")
+        axis.set_facecolor("#F8FAFC")
         axis.set_title(
             title,
-            color="#F2FFF0",
+            color="#1E293B",
             fontsize=13,
             fontweight="bold",
             pad=12,
@@ -77,7 +77,7 @@ def plot_behind_the_scenes(image_norm, key1, cipher):
 
         for spine in axis.spines.values():
             spine.set_visible(True)
-            spine.set_color("#39FF14")
+            spine.set_color("#E2E8F0")
             spine.set_linewidth(1.5)
 
     return fig
@@ -90,7 +90,7 @@ def render_encrypt_tab():
         st.session_state['encryption_done'] = False
 
     # 1. Primary Input
-    uploaded_img = st.file_uploader("Upload Image (JPG/PNG)", type=['png', 'jpg', 'jpeg'])
+    uploaded_img = st.file_uploader("Upload image (JPG or PNG)", type=['png', 'jpg', 'jpeg'])
     
     # 2. Progressive Disclosure: Hide the advanced settings!
     with st.expander("⚙️ Advanced Security Settings & Analysis"):
@@ -117,7 +117,7 @@ def render_encrypt_tab():
         img_norm = img_resized.astype(np.float64) / 255.0
         
         # 3. Primary Action
-        if st.button("./execute_drpe_encryption.sh", type="primary", use_container_width=True):
+        if st.button("Encrypt image", type="primary", use_container_width=True):
             with st.spinner("Processing 2D Fast Fourier Transform..."):
                 if key_mode == "Demo Mode (Manual PIN)":
                     k1 = generate_random_phase_mask(img_norm.shape, seed=pin)
@@ -165,7 +165,7 @@ def render_encrypt_tab():
             buffer = io.BytesIO()
             np.save(buffer, export_data, allow_pickle=True)
             
-            st.success("[ OK ] Encryption complete. Payload ready for extraction.")
+            st.success("Encryption complete. The encrypted data is ready for download.")
             
             dl_col1, dl_col2 = st.columns(2)
             with dl_col1:

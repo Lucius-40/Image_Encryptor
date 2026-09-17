@@ -69,3 +69,11 @@ def compute_target_size(height, width, max_dim=768):
         new_h = int(round(height * scale))
         new_w = int(round(width * scale))
     return (new_w, new_h)
+
+def resize_stretch_to_shape(img, target_shape):
+    """
+    Force-resize img to target_shape (H, W), ignoring aspect ratio.
+    Used by the steganography stretch-fallback path for undersized covers.
+    """
+    target_h, target_w = target_shape
+    return cv2.resize(img, (target_w, target_h))
