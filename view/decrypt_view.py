@@ -36,7 +36,7 @@ def render_decrypt_tab():
                     keys_dict = np.load(uploaded_keys, allow_pickle=True).item()
                     valid_k1 = keys_dict['key1']
                     valid_k2 = keys_dict['key2']
-                    st.success("[ OK ] Keys loaded into memory.")
+                    st.success("Keys loaded successfully.")
             else:
                 pin = st.number_input("Enter your numeric PIN", min_value=0, max_value=999999, value=4096)
                 valid_k1 = generate_random_phase_mask(cipher.shape, seed=pin)
@@ -46,7 +46,7 @@ def render_decrypt_tab():
             attack_mode = st.toggle("🚨 Simulate Wrong Key Attack", help="Intentionally corrupts Key 2 to demonstrate the sensitivity of the DRPE algorithm.")
         
         # 3. Primary Action
-        if st.button("./execute_drpe_decryption.sh", type="primary", use_container_width=True):
+        if st.button("Decrypt image", type="primary", use_container_width=True):
             if valid_k1 is None or valid_k2 is None:
                 st.error("Cannot decrypt: No valid keys provided. Please upload your key file or enter a PIN.")
             else:

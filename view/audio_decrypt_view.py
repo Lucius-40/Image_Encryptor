@@ -45,7 +45,7 @@ def render_audio_decrypt():
         can_run = cipher_file is not None
 
     if can_run:
-        if st.button("./execute_audio_decrypt.sh", type="primary"):
+        if st.button("Decrypt audio", type="primary"):
             with st.spinner("Reversing 1D Fast Fourier Transform..."):
                 try:
                     cipher = np.load(cipher_file)
@@ -59,7 +59,7 @@ def render_audio_decrypt():
                     recovered_audio_float = decrypt_audio(cipher, k1, k2)
                     audio_bytes = wav_bytes_from_float_audio(recovered_audio_float, sample_rate)
 
-                    st.success("[ OK ] Audio signal successfully reconstructed.")
+                    st.success("Audio signal reconstructed successfully.")
                     st.audio(audio_bytes, format="audio/wav")
                     st.download_button(
                         label="💾 Download Recovered Audio (.wav)",

@@ -16,9 +16,9 @@ from view.plots import plot_audio_sensitivity_curve
 
 
 # --- 1. THE AUDIO MODAL POP-UP (The "Wow" Factor) ---
-@st.dialog("SECURE AUDIO PAYLOAD EXTRACTED", width="large")
+@st.dialog("Audio encryption results", width="large")
 def render_audio_output_modal(orig_audio, sr, cipher, k1, k2, key_mode, pin):
-    st.success("[ Encryption Complete.")
+    st.success("Audio encryption complete.")
     
     col1, col2 = st.columns(2)
     with col1:
@@ -40,17 +40,17 @@ def render_audio_output_modal(orig_audio, sr, cipher, k1, k2, key_mode, pin):
     st.write("Signal Waveform Comparison")
     fig, ax = plt.subplots(1, 2, figsize=(12, 3))
     
-    ax[0].plot(orig_audio[:1000], color='#39FF14') 
-    ax[0].set_title("Original Waveform Structure", color='white')
-    ax[0].set_facecolor('#050505')
+    ax[0].plot(orig_audio[:1000], color='#2563EB')
+    ax[0].set_title("Original waveform", color='#1E293B')
+    ax[0].set_facecolor('#FFFFFF')
     ax[0].axis('off')
     
-    ax[1].plot(cipher_playable[:1000], color='red')
-    ax[1].set_title("Scrambled Ciphertext", color='white')
-    ax[1].set_facecolor('#050505')
+    ax[1].plot(cipher_playable[:1000], color='#2563EB')
+    ax[1].set_title("Encrypted waveform", color='#1E293B')
+    ax[1].set_facecolor('#FFFFFF')
     ax[1].axis('off')
     
-    fig.patch.set_facecolor('#050505')
+    fig.patch.set_facecolor('#FFFFFF')
     st.pyplot(fig)
     
     st.divider()
@@ -74,7 +74,7 @@ def render_audio_output_modal(orig_audio, sr, cipher, k1, k2, key_mode, pin):
             st.info(f"Remember PIN: {pin}")
 
 
-# --- 2. THE MAIN TERMINAL VIEW ---
+# --- Main audio view ---
 def render_audio_encrypt():
     st.header("Audio Signal Encryption (1D DRPE)")
 
@@ -92,9 +92,9 @@ def render_audio_encrypt():
             st.session_state['audio_bytes'] = uploaded_audio.getvalue()
             st.rerun()
             
-    # Execution Terminal
+    # Encryption controls
     else:
-        st.success("[ OK ] Audio payload loaded into secure memory.")
+        st.success("Audio file loaded successfully.")
         audio_io = io.BytesIO(st.session_state['audio_bytes'])
         
         # Progressive Disclosure: Hide settings by default
@@ -112,16 +112,16 @@ def render_audio_encrypt():
 
         col_exec, col_clear = st.columns([3, 1])
         with col_exec:
-            execute_btn = st.button("./execute_audio_encrypt.sh", type="primary", use_container_width=True)
+            encrypt_btn = st.button("Encrypt audio", type="primary", use_container_width=True)
         with col_clear:
-            if st.button("rm payload", use_container_width=True):
+            if st.button("Clear audio", use_container_width=True):
                 st.session_state['audio_bytes'] = None
                 st.session_state['audio_cipher'] = None
                 st.session_state['audio_signal'] = None
                 st.rerun()
 
         # Math Execution & Trigger Modal
-        if execute_btn:
+        if encrypt_btn:
             # Cinematic progress bar
             progress_text = "Applying 1D phase masks and executing FFT..."
             my_bar = st.progress(0, text=progress_text)
