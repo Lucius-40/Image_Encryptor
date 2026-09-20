@@ -1,22 +1,10 @@
 import io
 
-import cv2
 import numpy as np
 import streamlit as st
 
-from core.Steganography import extract_cipher_self_contained
+from core.steganography_io import extract_cipher_from_png
 from core.utils import ciphertext_magnitude_for_display, to_uint8
-
-
-def _decode_rgb(file_bytes):
-    image = cv2.imdecode(np.frombuffer(file_bytes, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
-    if image is None:
-        raise ValueError("The selected file is not a readable PNG.")
-    if image.ndim == 2:
-        return cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-    if image.shape[2] == 4:
-        return cv2.cvtColor(image, cv2.COLOR_BGRA2RGB)
-    return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
 
 def render_steganography_extract_tab():
@@ -35,8 +23,7 @@ def render_steganography_extract_tab():
             return
 
         try:
-            stego = _decode_rgb(uploaded_stego.getvalue())
-            cipher = extract_cipher_self_contained(stego)
+            stego, cipher = extract_cipher_from_png(uploaded_stego.getvalue())
             st.session_state["steg_extract_result_v2"] = (stego, cipher)
         except Exception as error:
             st.error(f"Could not extract the cipher. Check that this is an intact PNG produced by the Embed panel: {error}")
