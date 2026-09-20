@@ -1,17 +1,42 @@
 import streamlit as st
 import numpy as np
+import io
+from scipy.io import wavfile
+
 from core.audio_drpe import decrypt_audio, generate_audio_keys
+from core.audio_image_steganography import extract_audio_cipher_from_image
 from core.audio_utils import wav_bytes_from_float_audio
+from core.audio_steganography import extract_audio_cipher
+from core.steganography_io import decode_rgb_image
 
 def render_audio_decrypt():
     st.header("Audio Signal Decryption (1D DRPE)")
     st.write("Upload the secure matrix files to reconstruct the original audio signal.")
 
+    cipher_mode = st.radio(
+        "Select Cipher Source:",
+        ["Ciphertext (.npy)", "Stego Audio (.wav)", "Stego Image (.png)"],
+        horizontal=True,
+    )
     key_mode = st.radio("Select Key Source:", ["Upload Key Files", "Enter Manual PIN"], horizontal=True)
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        cipher_file = st.file_uploader("Upload Ciphertext (.npy)", type=["npy"])
+        cipher_file = st.file_uploader(
+            "Upload Ciphertext (.npy)" if cipher_mode == "Ciphertext (.npy)"
+            else "Upload Stego Audio (.wav)" if cipher_mode == "Stego Audio (.wav)"
+            else "Upload Audio Stego Image (.png)",
+            type=["npy"] if cipher_mode == "Ciphertext (.npy)"
+            else ["wav"] if cipher_mode == "Stego Audio (.wav)"
+            else ["png"],
+        )
+
+    if cipher_file is not None and cipher_mode == "Stego Audio (.wav)":
+        st.subheader("Stego Audio Preview")
+        st.audio(cipher_file.getvalue(), format="audio/wav")
+    elif cipher_file is not None and cipher_mode == "Stego Image (.png)":
+        st.subheader("Audio Stego Image Preview")
+        st.image(cipher_file.getvalue(), use_container_width=True)
 
     k1_file = None
     k2_file = None
@@ -30,12 +55,16 @@ def render_audio_decrypt():
     st.divider()
 
     # 2. Sample Rate Configuration
-    st.subheader("Playback Configuration")
-    sample_rate = st.number_input(
-        "Audio Sample Rate (Hz)",
-        min_value=8000, max_value=48000, value=16000, step=1000,
-        help="Default is 16000Hz (standard for speech data). CD quality is 44100Hz."
-    )
+    sample_rate = None
+    if cipher_mode == "Ciphertext (.npy)":
+        st.subheader("Playback Configuration")
+        sample_rate = st.number_input(
+            "Audio Sample Rate (Hz)",
+            min_value=8000, max_value=48000, value=16000, step=1000,
+            help="Default is 16000Hz (standard for speech data). CD quality is 44100Hz."
+        )
+    else:
+        st.info("The sample rate will be read from the stego WAV header.")
 
     # 3. Execution Block
     can_run = False
@@ -48,13 +77,23 @@ def render_audio_decrypt():
         if st.button("Decrypt audio", type="primary"):
             with st.spinner("Reversing 1D Fast Fourier Transform..."):
                 try:
-                    cipher = np.load(cipher_file)
+                    if cipher_mode == "Ciphertext (.npy)":
+                        cipher = np.load(cipher_file)
+                    elif cipher_mode == "Stego Audio (.wav)":
+                        _, stego_audio = wavfile.read(io.BytesIO(cipher_file.getvalue()))
+                        cipher, sample_rate = extract_audio_cipher(stego_audio)
+                    else:
+                        stego_image = decode_rgb_image(cipher_file.getvalue())
+                        cipher, sample_rate = extract_audio_cipher_from_image(stego_image)
 
                     if key_mode == "Upload Key Files":
                         k1 = np.load(k1_file)
                         k2 = np.load(k2_file)
                     else:
                         k1, k2 = generate_audio_keys(len(cipher), pin=pin)
+
+                    if k1.shape != cipher.shape or k2.shape != cipher.shape:
+                        raise ValueError("Ciphertext and both keys must have the same length.")
 
                     recovered_audio_float = decrypt_audio(cipher, k1, k2)
                     audio_bytes = wav_bytes_from_float_audio(recovered_audio_float, sample_rate)
