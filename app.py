@@ -4,7 +4,7 @@ import streamlit as st
 st.set_page_config(page_title="Optical Encryption Engine", layout="wide", initial_sidebar_state="expanded")
 
 # Import Views
-from view.home_view import inject_custom_css, render_hide_gif
+from view.home_view import inject_custom_css, render_home_page
 from view.encrypt_view import render_encrypt_tab
 from view.decrypt_view import render_decrypt_tab
 from view.analysis_view import render_analysis_tab
@@ -59,23 +59,7 @@ inject_custom_css(is_home=st.session_state['domain'] == 'home')
 
 # Start page
 if st.session_state['domain'] == 'home':
-    st.markdown("<div id='landing-page'></div>", unsafe_allow_html=True)
-    left_col, right_col = st.columns([1.8, 1.1])
-
-    with left_col:
-        st.markdown("<h1 style='margin-bottom: 1rem;'>Double Random Phase Encoding</h1>", unsafe_allow_html=True)
-        st.write("Image and audio encryption tools for exploring double random phase encoding.")
-
-        st.markdown("<br><br>", unsafe_allow_html=True)
-
-        st.button("Open image tools", use_container_width=True, on_click=set_domain, args=('image',))
-
-        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-
-        st.button("Open audio tools", use_container_width=True, on_click=set_domain, args=('audio',))
-
-    with right_col:
-        render_hide_gif()
+    render_home_page(set_domain)
 
 # Workspace
 else:

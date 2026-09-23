@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import streamlit as st
 
-from core.Steganography import extract_cipher_self_contained
+from core.Steganography import extract_cipher_self_contained, extract_key_payload
 from core.utils import ciphertext_magnitude_for_display, to_uint8
 
 
@@ -19,7 +19,7 @@ def _decode_rgb(file_bytes):
     return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
 
-def render_steganography_extract_tab():
+def _render_cipher_extract_tab():
     st.header("6. Extract a Hidden Cipher")
     st.caption("Upload the original PNG stego image. It contains the header and hidden cipher.")
 
@@ -81,3 +81,58 @@ def render_steganography_extract_tab():
         mime="application/octet-stream",
         key="steg_download_cipher",
     )
+
+
+def _render_key_extract_tab():
+    st.subheader("Extract encryption keys")
+    st.caption("Upload the separate key stego image produced by Hide keys.")
+    uploaded_key_stego = st.file_uploader(
+        "Upload key stego image (PNG only)",
+        type=["png"],
+        key="steg_extract_key_image",
+    )
+    if uploaded_key_stego is None:
+        st.markdown(
+            """
+            <div class="empty-watermark" aria-label="No key stego image uploaded">
+                <div class="empty-watermark__title">Awaiting Key Image</div>
+                <div class="empty-watermark__hint">Upload the separate PNG containing the hidden encryption keys.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    if st.button("Extract hidden keys", type="primary", use_container_width=True, key="steg_extract_keys_action"):
+        if uploaded_key_stego is None:
+            st.error("Upload the key stego image before extracting the keys.")
+        else:
+            try:
+                key_payload = extract_key_payload(_decode_rgb(uploaded_key_stego.getvalue()))
+                keys_data = np.load(io.BytesIO(key_payload), allow_pickle=True).item()
+                if not isinstance(keys_data, dict) or not {"key1", "key2"}.issubset(keys_data):
+                    raise ValueError("The extracted payload does not contain key1 and key2.")
+                st.session_state["steg_extract_keys_result"] = (uploaded_key_stego.getvalue(), key_payload)
+            except Exception as error:
+                st.error(f"Could not extract the keys. Check that this is a key stego PNG: {error}")
+
+    result = st.session_state.get("steg_extract_keys_result")
+    if result is not None:
+        image_bytes, key_payload = result
+        st.image(_decode_rgb(image_bytes), caption="Uploaded key stego image", use_container_width=True)
+        st.success("Encryption keys extracted successfully.")
+        st.download_button(
+            "Download extracted keys (.npy)",
+            data=key_payload,
+            file_name="extracted_keys.npy",
+            mime="application/octet-stream",
+            key="steg_download_keys",
+        )
+
+
+def render_steganography_extract_tab():
+    st.header("6. Extract Hidden Data")
+    cipher_tab, key_tab = st.tabs(["Extract cipher", "Extract keys"])
+    with cipher_tab:
+        _render_cipher_extract_tab()
+    with key_tab:
+        _render_key_extract_tab()
