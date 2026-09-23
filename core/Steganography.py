@@ -28,6 +28,13 @@ import struct
 
 import numpy as np
 
+_KEY_HEADER_FORMAT = ">4sBIB"
+_KEY_HEADER_BYTES = struct.calcsize(_KEY_HEADER_FORMAT)
+_KEY_MAGIC = b"DRPK"
+_KEY_STRETCH_HEADER_FORMAT = ">4sBI"
+_KEY_STRETCH_HEADER_BYTES = struct.calcsize(_KEY_STRETCH_HEADER_FORMAT)
+_KEY_STRETCH_MAGIC = b"DRPS"
+
 # Fixed header layout: H(uint32), W(uint32), lsb_depth(uint8),
 # r_lo/r_hi/i_lo/i_hi (float32 each). Always embedded at 1 bit/channel
 # regardless of the body's lsb_depth, so it can always be read back
@@ -277,6 +284,95 @@ def extract_cipher_self_contained(stego_rgb):
     real = dequantize_from_uint8(real_q, r_lo, r_hi)
     imag = dequantize_from_uint8(imag_q, i_lo, i_hi)
     return real + 1j * imag
+
+
+def required_cover_pixels_bytes(payload_bytes, lsb_depth=1, channels=3):
+    """Return the pixels needed for a self-describing byte payload."""
+    if lsb_depth not in (1, 2):
+        raise ValueError("lsb_depth must be 1 or 2")
+    header_bits = _KEY_HEADER_BYTES * 8
+    body_bits = int(payload_bytes) * 8
+    return int(np.ceil((header_bits + np.ceil(body_bits / lsb_depth)) / channels))
+
+
+def required_key_stretch_dimensions(payload_bytes, channels=3):
+    """Return square dimensions that can hold a raw key payload."""
+    total_bytes = _KEY_STRETCH_HEADER_BYTES + int(payload_bytes)
+    pixels = int(np.ceil(total_bytes / channels))
+    side = int(np.ceil(np.sqrt(pixels)))
+    return side, side
+
+
+def embed_key_payload(payload, cover_rgb, lsb_depth=1):
+    """Embed a serialized key-file payload into an RGB cover image."""
+    payload = bytes(payload)
+    needed = required_cover_pixels_bytes(len(payload), lsb_depth=lsb_depth)
+    available = cover_rgb.shape[0] * cover_rgb.shape[1]
+    if available < needed:
+        raise ValueError(
+            f"Cover too small: has {available:,} pixels, needs at least {needed:,} "
+            f"for the key payload at lsb_depth={lsb_depth}."
+        )
+
+    header = struct.pack(_KEY_HEADER_FORMAT, _KEY_MAGIC, 1, len(payload), lsb_depth)
+    bits = np.unpackbits(np.frombuffer(header + payload, dtype=np.uint8))
+    header_bits = _KEY_HEADER_BYTES * 8
+    body_bits = bits[header_bits:]
+    body_pad = (-len(body_bits)) % lsb_depth
+    if body_pad:
+        body_bits = np.concatenate([body_bits, np.zeros(body_pad, dtype=np.uint8)])
+
+    stego = cover_rgb.copy()
+    flat = stego.reshape(-1)
+    next_slot = _bits_to_slots(flat, 0, bits[:header_bits], depth=1)
+    _bits_to_slots(flat, next_slot, body_bits, depth=lsb_depth)
+    return stego
+
+
+def embed_key_payload_scaled(payload, cover_rgb, resize_fn, lsb_depth=1):
+    """Repeat cover pixels until an LSB key payload fits."""
+    payload = bytes(payload)
+    needed = required_cover_pixels_bytes(len(payload), lsb_depth=lsb_depth)
+    available = cover_rgb.shape[0] * cover_rgb.shape[1]
+    scale = max(1, int(np.ceil(np.sqrt(needed / available))))
+    height, width = cover_rgb.shape[:2]
+    scaled_cover = resize_fn(
+        cover_rgb,
+        (width * scale, height * scale),
+        interpolation=0,
+    )
+    return embed_key_payload(payload, scaled_cover, lsb_depth=lsb_depth), scale
+
+
+def extract_key_payload(stego_rgb):
+    """Extract and validate a serialized key-file payload from an RGB image."""
+    flat = stego_rgb.reshape(-1)
+    if flat[:4].tobytes() == _KEY_STRETCH_MAGIC:
+        if flat.size < _KEY_STRETCH_HEADER_BYTES * 3:
+            raise ValueError("The stretched key image is incomplete.")
+        magic, version, payload_bytes = struct.unpack(
+            _KEY_STRETCH_HEADER_FORMAT,
+            flat[:_KEY_STRETCH_HEADER_BYTES].tobytes(),
+        )
+        if magic != _KEY_STRETCH_MAGIC or version != 1:
+            raise ValueError("The stretched key image header is invalid.")
+        start = _KEY_STRETCH_HEADER_BYTES
+        end = start + payload_bytes
+        if end > flat.size:
+            raise ValueError("The stretched key image does not contain the full key payload.")
+        return flat[start:end].tobytes()
+
+    header_bits, next_slot = _slots_to_bits(flat, 0, _KEY_HEADER_BYTES * 8, depth=1)
+    magic, version, payload_bytes, lsb_depth = struct.unpack(
+        _KEY_HEADER_FORMAT, np.packbits(header_bits).tobytes()
+    )
+    if magic != _KEY_MAGIC or version != 1:
+        raise ValueError("This image does not contain a DRPE key payload.")
+    if lsb_depth not in (1, 2):
+        raise ValueError("The embedded key payload uses an unsupported bit depth.")
+
+    body_bits, _ = _slots_to_bits(flat, next_slot, payload_bytes * 8, depth=lsb_depth)
+    return np.packbits(body_bits).tobytes()
 
 
 # ---------------------------------------------------------------------

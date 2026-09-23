@@ -14,18 +14,20 @@ def render_decrypt_tab():
         st.session_state['decryption_done'] = False
 
     # 1. Primary Input
-    source_mode = st.radio(
-        "Cipher source",
-        ["Encrypted data (.npy)", "Stego image (.png)"],
-        horizontal=True,
-    )
-    uploaded_payload = st.file_uploader(
-        "Upload encrypted data (.npy)" if source_mode == "Encrypted data (.npy)"
-        else "Upload stego image (.png)",
-        type=["npy"] if source_mode == "Encrypted data (.npy)" else ["png"],
-    )
+    uploaded_npy = st.file_uploader("Upload Encrypted Data (.npy strictly)", type=['npy'])
+
+    if uploaded_npy is None:
+        st.markdown(
+            """
+            <div class="empty-watermark" aria-label="No encrypted image uploaded">
+                <div class="empty-watermark__title">Awaiting Cipher</div>
+                <div class="empty-watermark__hint">Upload encrypted image data to begin decryption.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     
-    if uploaded_payload:
+    if uploaded_npy:
         try:
             if source_mode == "Encrypted data (.npy)":
                 loaded_data = np.load(uploaded_payload, allow_pickle=True).item()

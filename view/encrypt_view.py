@@ -92,20 +92,20 @@ def render_encrypt_tab():
     # 1. Primary Input
     uploaded_img = st.file_uploader("Upload image (JPG or PNG)", type=['png', 'jpg', 'jpeg'])
     
-    # 2. Progressive Disclosure: Hide the advanced settings!
-    with st.expander("⚙️ Advanced Security Settings & Analysis"):
-        key_mode = st.radio(
-            "Select Key Generation Method:", 
-            ["Secure Mode (Export Key File)", "Demo Mode (Manual PIN)"], 
-            horizontal=True
-        )
-        
-        pin = None
-        if key_mode == "Demo Mode (Manual PIN)":
-            pin = st.number_input("Enter a numeric PIN (e.g., 4096)", min_value=0, max_value=999999, value=4096)
-            st.caption("⚠️ Using a low-entropy PIN makes the encryption mathematically vulnerable to brute-force attacks. Use only for fast presentations.")
+    # 2. Keep security and analysis controls visible beside the primary input.
+    st.subheader("Security and signal analysis")
+    key_mode = st.radio(
+        "Select Key Generation Method:",
+        ["Secure Mode (Export Key File)", "Demo Mode (Manual PIN)"],
+        horizontal=True,
+    )
 
-        show_math = st.toggle("🔍 Show Behind the Scenes (Signal Processing)")
+    pin = None
+    if key_mode == "Demo Mode (Manual PIN)":
+        pin = st.number_input("Enter a numeric PIN (e.g., 4096)", min_value=0, max_value=999999, value=4096)
+        st.caption("⚠️ Using a low-entropy PIN makes the encryption mathematically vulnerable to brute-force attacks. Use only for fast presentations.")
+
+    show_math = st.toggle("🔍 Show Behind the Scenes (Signal Processing)")
 
     if uploaded_img:
         file_bytes = np.asarray(bytearray(uploaded_img.read()), dtype=np.uint8)
