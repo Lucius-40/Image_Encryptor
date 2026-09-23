@@ -1,6 +1,5 @@
 import io
 
-import cv2
 import numpy as np
 import streamlit as st
 
@@ -45,8 +44,7 @@ def _render_cipher_extract_tab():
             return
 
         try:
-            stego = _decode_rgb(uploaded_stego.getvalue())
-            cipher = extract_cipher_self_contained(stego)
+            stego, cipher = extract_cipher_from_png(uploaded_stego.getvalue())
             st.session_state["steg_extract_result_v2"] = (stego, cipher)
         except Exception as error:
             st.error(f"Could not extract the cipher. Check that this is an intact PNG produced by the Embed panel: {error}")

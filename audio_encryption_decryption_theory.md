@@ -186,3 +186,74 @@ This is the completed implementation structure for audio mode support.
 - Total encryption/decryption complexity remains $O(N\log N)$.
 - Numerical errors are expected at floating-point tolerance scale.
 - Manual PIN mode is for demonstration and reproducibility, not strong key entropy.
+
+## 10) Audio-Cover Steganography
+
+Audio mode also supports hiding the encrypted complex ciphertext inside a
+second audio file. This is separate from DRPE: DRPE protects the ciphertext,
+while steganography hides the ciphertext's presence.
+
+### Sender workflow
+
+1. Upload and encrypt the secret WAV as usual.
+2. Optionally upload a second mono WAV as the cover audio.
+3. Choose an LSB depth from 1 to 4.
+4. Confirm that the cover has enough samples.
+5. Download `stego_audio.wav` together with the existing keys or PIN.
+
+The stego file is written as lossless PCM16 WAV. The embedded payload contains
+a versioned header, the secret sample rate, ciphertext length, quantization
+ranges, payload length, and a CRC32 checksum. The ciphertext's real and
+imaginary components are stored as quantized unsigned 16-bit values.
+
+### Recipient workflow
+
+1. Open Audio Decryption.
+2. Choose **Stego Audio (.wav)** as the cipher source.
+3. Upload `stego_audio.wav`.
+4. Upload the two keys or enter the original PIN.
+5. Decrypt the audio.
+
+The sample rate is recovered from the embedded header, so it does not need to
+be entered manually for stego audio. The original `.npy` ciphertext workflow
+continues to use the existing manual sample-rate field.
+
+### Format and capacity requirements
+
+- Use mono PCM WAV cover audio.
+- Do not convert the stego WAV to MP3, AAC, or another lossy format.
+- Do not edit, resample, normalize, or trim the stego WAV after embedding.
+- A cover sample stores 1 to 4 hidden bits depending on the selected depth.
+- Higher LSB depth provides more capacity but causes more audible cover noise.
+- The cover must be longer than the secret audio because each ciphertext sample
+  contains both real and imaginary components.
+- The correct DRPE keys or PIN are still required; the cover audio is not a key.
+
+## 11) Audio Cipher Hidden in a Cover Image
+
+The encrypted audio ciphertext can also be hidden inside an ordinary RGB image.
+This does not convert the audio into a lossy spectrogram. The application stores
+the complex ciphertext itself inside the image pixels.
+
+### Sender workflow
+
+1. Upload and encrypt the secret WAV.
+2. Upload an image under **Optional: upload a cover image to hide the encrypted audio**.
+3. Select image LSB depth 1 or 2.
+4. Confirm that the image has enough pixels.
+5. Download `audio_stego_image.png` together with the keys or PIN.
+
+### Recipient workflow
+
+1. Open Audio Decryption.
+2. Select **Stego Image (.png)** as the cipher source.
+3. Upload `audio_stego_image.png`.
+4. Upload both keys or enter the original PIN.
+5. Click **Decrypt audio**.
+
+The PNG header restores the ciphertext length and sample rate automatically.
+PNG must remain lossless: do not convert the stego image to JPEG, resize it,
+or pass it through a service that recompresses or modifies image pixels.
+
+The image cover is concealment only. It does not replace the DRPE keys, and the
+correct keys or PIN are still required for audio recovery.

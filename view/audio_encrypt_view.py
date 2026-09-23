@@ -3,9 +3,17 @@ import numpy as np
 import io
 import time
 import matplotlib.pyplot as plt
+import cv2
+from scipy.io import wavfile
 
 from core.audio_drpe import encrypt_audio, decrypt_audio, perturb_audio_key
+from core.audio_image_steganography import (
+    embed_audio_cipher_in_image,
+    required_cover_pixels as required_audio_image_pixels,
+)
+from core.audio_steganography import embed_audio_cipher, required_cover_samples
 from core.audio_utils import load_and_normalize_audio, wav_bytes_from_float_audio
+from core.steganography_io import decode_rgb_image
 from core.metrics import (
     calculate_audio_snr_db,
     calculate_audio_mse,
@@ -15,9 +23,32 @@ from core.metrics import (
 from view.plots import plot_audio_sensitivity_curve
 
 
+def _wav_bytes_from_pcm16(audio, sample_rate):
+    buffer = io.BytesIO()
+    wavfile.write(buffer, int(sample_rate), np.asarray(audio, dtype=np.int16))
+    return buffer.getvalue()
+
+
+def _png_bytes_from_rgb(image):
+    success, encoded = cv2.imencode(".png", cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+    if not success:
+        raise ValueError("Could not encode the audio stego image as PNG.")
+    return encoded.tobytes()
+
+
 # --- 1. THE AUDIO MODAL POP-UP (The "Wow" Factor) ---
 @st.dialog("Audio encryption results", width="large")
-def render_audio_output_modal(orig_audio, sr, cipher, k1, k2, key_mode, pin):
+def render_audio_output_modal(
+    orig_audio,
+    sr,
+    cipher,
+    k1,
+    k2,
+    key_mode,
+    pin,
+    stego_bytes=None,
+    stego_image_bytes=None,
+):
     st.success("Audio encryption complete.")
     
     col1, col2 = st.columns(2)
@@ -73,6 +104,25 @@ def render_audio_output_modal(orig_audio, sr, cipher, k1, k2, key_mode, pin):
         else:
             st.info(f"Remember PIN: {pin}")
 
+    if stego_bytes is not None:
+        st.download_button(
+            "🎵 Download Stego Audio (.wav)",
+            data=stego_bytes,
+            file_name="stego_audio.wav",
+            mime="audio/wav",
+            use_container_width=True,
+        )
+
+    if stego_image_bytes is not None:
+        st.image(stego_image_bytes, caption="Audio ciphertext hidden in cover image")
+        st.download_button(
+            "🖼️ Download Audio Stego Image (.png)",
+            data=stego_image_bytes,
+            file_name="audio_stego_image.png",
+            mime="image/png",
+            use_container_width=True,
+        )
+
 
 # --- Main audio view ---
 def render_audio_encrypt():
@@ -95,6 +145,8 @@ def render_audio_encrypt():
     # Encryption controls
     else:
         st.success("Audio file loaded successfully.")
+        st.subheader("Input Audio Preview")
+        st.audio(st.session_state['audio_bytes'], format="audio/wav")
         audio_io = io.BytesIO(st.session_state['audio_bytes'])
         
         # Progressive Disclosure: Hide settings by default
@@ -109,6 +161,80 @@ def render_audio_encrypt():
             if key_mode == "Demo Mode (Manual PIN)":
                 pin = st.number_input("Enter a numeric PIN (e.g., 4096)", min_value=0, max_value=999999, value=4096)
                 st.caption("⚠️ Using a low-entropy PIN makes the encryption vulnerable to brute-force attacks. Use only for presentations.")
+
+        cover_audio_file = st.file_uploader(
+            "Optional: upload a cover WAV to hide the encrypted audio",
+            type=["wav"],
+            key="audio_cover_upload",
+            help="The cover must be long enough to hold the encrypted ciphertext.",
+        )
+        lsb_depth = st.select_slider(
+            "Audio steganography LSB depth",
+            options=[1, 2, 3, 4],
+            value=1,
+            key="audio_steg_lsb_depth",
+        )
+
+        cover_image_file = st.file_uploader(
+            "Optional: upload a cover image to hide the encrypted audio",
+            type=["png", "jpg", "jpeg", "bmp"],
+            key="audio_cover_image_upload",
+            help="The cover image must have enough pixels for the encrypted audio payload.",
+        )
+        image_lsb_depth = st.select_slider(
+            "Audio-in-image LSB depth",
+            options=[1, 2],
+            value=1,
+            key="audio_image_steg_lsb_depth",
+        )
+
+        cover_image = None
+        if cover_image_file is not None:
+            try:
+                _, secret_audio_for_image = load_and_normalize_audio(
+                    io.BytesIO(st.session_state["audio_bytes"])
+                )
+                cover_image = decode_rgb_image(cover_image_file.getvalue())
+                required_pixels = required_audio_image_pixels(
+                    len(secret_audio_for_image), image_lsb_depth
+                )
+                available_pixels = cover_image.shape[0] * cover_image.shape[1]
+                st.caption(
+                    f"Image capacity: {available_pixels:,} pixels available / "
+                    f"{required_pixels:,} required"
+                )
+                st.image(cover_image, caption="Cover image preview", use_container_width=True)
+                if available_pixels < required_pixels:
+                    st.warning(
+                        "The cover image is too small. Choose a larger image or increase "
+                        "the image LSB depth."
+                    )
+            except Exception as error:
+                st.error(f"Could not read the cover image: {error}")
+                cover_image = None
+
+        cover_audio = None
+        cover_sample_rate = None
+        if cover_audio_file is not None:
+            try:
+                _, secret_audio = load_and_normalize_audio(
+                    io.BytesIO(st.session_state["audio_bytes"])
+                )
+                cover_sample_rate, cover_audio = load_and_normalize_audio(
+                    io.BytesIO(cover_audio_file.getvalue())
+                )
+                required = required_cover_samples(len(secret_audio), lsb_depth)
+                available = len(cover_audio)
+                st.caption(
+                    f"Cover capacity: {available:,} samples available / "
+                    f"{required:,} required"
+                )
+                st.audio(cover_audio_file.getvalue(), format="audio/wav")
+                if available < required:
+                    st.warning("The cover WAV is too short. Choose a longer cover or increase LSB depth.")
+            except Exception as error:
+                st.error(f"Could not read the cover WAV: {error}")
+                cover_audio = None
 
         col_exec, col_clear = st.columns([3, 1])
         with col_exec:
@@ -146,8 +272,44 @@ def render_audio_encrypt():
             st.session_state['audio_key_mode'] = key_mode
             st.session_state['audio_pin'] = pin
             
+            stego_bytes = None
+            if cover_audio_file is not None and cover_audio is not None:
+                try:
+                    stego_audio = embed_audio_cipher(
+                        cipher,
+                        cover_audio,
+                        sample_rate=sr,
+                        lsb_depth=lsb_depth,
+                    )
+                    stego_bytes = _wav_bytes_from_pcm16(stego_audio, cover_sample_rate)
+                except (TypeError, ValueError) as error:
+                    st.error(f"Could not hide the encrypted audio in the cover WAV: {error}")
+
+            stego_image_bytes = None
+            if cover_image_file is not None and cover_image is not None:
+                try:
+                    stego_image = embed_audio_cipher_in_image(
+                        cipher,
+                        cover_image,
+                        sample_rate=sr,
+                        lsb_depth=image_lsb_depth,
+                    )
+                    stego_image_bytes = _png_bytes_from_rgb(stego_image)
+                except (TypeError, ValueError) as error:
+                    st.error(f"Could not hide the encrypted audio in the cover image: {error}")
+
             # Fire the Modal
-            render_audio_output_modal(audio_signal, sr, cipher, k1, k2, key_mode, pin)
+            render_audio_output_modal(
+                audio_signal,
+                sr,
+                cipher,
+                k1,
+                k2,
+                key_mode,
+                pin,
+                stego_bytes,
+                stego_image_bytes,
+            )
 
         # --- 3. THE ANALYTICS ENGINE (Remains on page after modal closes) ---
         if st.session_state['audio_cipher'] is not None:

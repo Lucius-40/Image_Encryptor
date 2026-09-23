@@ -18,17 +18,6 @@ from core.utils import ciphertext_magnitude_for_display, to_uint8
 COVERS_DIR = Path(__file__).resolve().parent.parent / "app_assets" / "covers"
 
 
-def _decode_rgb(file_bytes):
-    image = cv2.imdecode(np.frombuffer(file_bytes, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
-    if image is None:
-        raise ValueError("The selected file is not a readable image.")
-    if image.ndim == 2:
-        return cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-    if image.shape[2] == 4:
-        return cv2.cvtColor(image, cv2.COLOR_BGRA2RGB)
-    return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-
 def _as_uint8_rgb(image):
     if image.dtype != np.uint8:
         image = np.clip(image, 0, 255).astype(np.uint8)
@@ -110,7 +99,7 @@ def _render_cipher_embed_tab():
             st.caption(f"Selected cover: {selected_path.name}")
             cover_name = selected_path.name
             try:
-                cover = _decode_rgb(selected_path.read_bytes())
+                cover = decode_rgb_image(selected_path.read_bytes())
             except (OSError, ValueError) as error:
                 st.error(f"Could not load the preset cover: {error}")
     else:
@@ -120,7 +109,7 @@ def _render_cipher_embed_tab():
         if uploaded_cover is not None:
             cover_name = uploaded_cover.name
             try:
-                cover = _decode_rgb(uploaded_cover.getvalue())
+                cover = decode_rgb_image(uploaded_cover.getvalue())
             except ValueError as error:
                 st.error(str(error))
 

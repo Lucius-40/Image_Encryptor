@@ -23,6 +23,8 @@ All image values used by the encryption functions should be floating-point value
 | `core/` | `audio_drpe.py` | Audio phase masks, key management, audio encryption/decryption |
 | `core/` | `audio_utils.py` | WAV loading, normalization, PCM conversion, WAV bytes |
 | `core/` | `metrics.py` | PSNR, audio metrics, sensitivity, and robustness experiments |
+| `core/` | `audio_steganography.py` | PCM WAV embedding/extraction for complex audio ciphertexts |
+| `core/` | `audio_image_steganography.py` | RGB PNG embedding/extraction for complex audio ciphertexts |
 | `core/` | `utils.py` | Image loading, display conversion, resize sizing |
 
 `core/__init__.py` is empty and exports no functions.
