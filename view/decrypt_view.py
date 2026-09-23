@@ -14,6 +14,17 @@ def render_decrypt_tab():
 
     # 1. Primary Input
     uploaded_npy = st.file_uploader("Upload Encrypted Data (.npy strictly)", type=['npy'])
+
+    if uploaded_npy is None:
+        st.markdown(
+            """
+            <div class="empty-watermark" aria-label="No encrypted image uploaded">
+                <div class="empty-watermark__title">Awaiting Cipher</div>
+                <div class="empty-watermark__hint">Upload encrypted image data to begin decryption.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     
     if uploaded_npy:
         try:

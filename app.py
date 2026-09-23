@@ -54,11 +54,12 @@ def set_page(new_page):
     st.session_state['active_page'] = new_page
    
 
-# Apply the global light theme styling.
-inject_custom_css()
+# Apply the shared styling, with a home-only accent treatment.
+inject_custom_css(is_home=st.session_state['domain'] == 'home')
 
 # Start page
 if st.session_state['domain'] == 'home':
+    st.markdown("<div id='landing-page'></div>", unsafe_allow_html=True)
     left_col, right_col = st.columns([1.8, 1.1])
 
     with left_col:

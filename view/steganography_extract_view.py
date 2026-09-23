@@ -26,6 +26,16 @@ def render_steganography_extract_tab():
     uploaded_stego = st.file_uploader(
         "Upload stego image (PNG only)", type=["png", "jpg", "jpeg"], key="steg_extract_image"
     )
+    if uploaded_stego is None:
+        st.markdown(
+            """
+            <div class="empty-watermark" aria-label="No stego image uploaded">
+                <div class="empty-watermark__title">Awaiting Stego Image</div>
+                <div class="empty-watermark__hint">Upload a PNG with a hidden cipher to begin extraction.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     if st.button("Extract hidden cipher", type="primary", use_container_width=True, key="steg_extract_action"):
         if uploaded_stego is None:
             st.error("Upload the PNG stego image before extracting the cipher.")

@@ -15,24 +15,29 @@ from core.utils import to_uint8
 from view.plots import plot_sensitivity_curve, plot_robustness_curve
 
 def render_analysis_tab():
-    st.header("3. Key Sensitivity Analysis")
-    st.write("Test how the algorithm reacts when the decryption key is slightly damaged or guessed incorrectly.")
+    st.header("3. Corruption Analysis")
+    st.write("Compare the effect of corrupted decryption keys and corrupted ciphertext on recovery quality.")
 
     if 'enc_img_norm' not in st.session_state:
         st.info("Please encrypt an image in Tab 1 first to run the analysis.")
         return
 
-    # 1. Pull Baseline Data
     orig_img = st.session_state['enc_img_norm']
     cipher = st.session_state['enc_cipher']
     k1 = st.session_state['enc_k1']
     k2 = st.session_state['enc_k2']
 
-    st.divider()
+    key_tab, cipher_tab = st.tabs(["Key corruption", "Cipher corruption"])
+    with key_tab:
+        _render_key_corruption(orig_img, cipher, k1, k2)
+    with cipher_tab:
+        _render_cipher_corruption(orig_img, cipher, k1, k2)
 
-    # --- PART A: Interactive Slider ---
-    st.subheader("Interactive Perturbation")
-    error_mag = st.slider("Key Error Magnitude (Gaussian Noise Scale)", 0.0, 0.5, 0.0, 0.01)
+
+def _render_key_corruption(orig_img, cipher, k1, k2):
+    st.subheader("Key corruption")
+    st.write("Test how the algorithm reacts when the decryption key is slightly damaged or guessed incorrectly.")
+    error_mag = st.slider("Key Error Magnitude (Gaussian Noise Scale)", 0.0, 0.5, 0.0, 0.01, key="key_error_magnitude")
 
     damaged_k2 = generate_perturbed_key(k2, error_magnitude=error_mag)
     recovered = np.clip(decrypt(cipher, k1, damaged_k2), 0, 1)
@@ -45,25 +50,21 @@ def render_analysis_tab():
         label = "Decrypted (Perfect Match: Infinity dB)" if current_psnr == float('inf') else f"Decrypted (PSNR: {current_psnr:.2f} dB)"
         st.image(to_uint8(recovered), caption=label)
 
-    st.divider()
-
-    # --- PART B: Sensitivity Curve Graph ---
-    st.subheader("Generate Sensitivity Curve")
-    batch_steps = st.slider("Sensitivity Batch Steps", min_value=10, max_value=200, value=50, step=10)
-
-    if st.button("Plot Curve", type="primary"):
+    st.subheader("Generate Key Sensitivity Curve")
+    batch_steps = st.slider("Sensitivity Batch Steps", min_value=10, max_value=200, value=50, step=10, key="key_sensitivity_steps")
+    if st.button("Plot Key Sensitivity Curve", type="primary", key="plot_key_curve"):
         with st.spinner(f"Running {batch_steps} decryptions..."):
             magnitudes, psnr_values = run_sensitivity_batch(orig_img, cipher, k1, k2, steps=batch_steps)
-            fig = plot_sensitivity_curve(magnitudes, psnr_values)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(plot_sensitivity_curve(magnitudes, psnr_values), use_container_width=True)
 
-    st.divider()
-    st.header("4. Robustness to Ciphertext Corruption")
 
+def _render_cipher_corruption(orig_img, cipher, k1, k2):
+    st.subheader("Cipher corruption")
+    st.write("Measure how noise, compression, and quantization damage the encrypted ciphertext.")
     robustness_mode = st.selectbox(
         "Corruption model",
         ["Gaussian Noise", "JPEG Compression", "Quantization"],
-        key="robustness_mode"
+        key="cipher_robustness_mode",
     )
 
     if robustness_mode == "Gaussian Noise":
@@ -76,58 +77,30 @@ def render_analysis_tab():
         levels = np.array([8, 16, 32, 64, 128, 256, 512, 1024])
         title = "DRPE Robustness: Quantization"
 
-    if st.button("Run Robustness Test", type="primary"):
-        mode = {
-            "Gaussian Noise": "noise",
-            "JPEG Compression": "jpeg",
-            "Quantization": "quant"
-        }[robustness_mode]
-
-        severity, psnr_values = run_robustness_batch(
-            orig_img, cipher, k1, k2, mode=mode, levels=levels
-        )
-        fig = plot_robustness_curve(severity, psnr_values, title)
-        st.plotly_chart(fig, use_container_width=True)
+    if st.button("Run Cipher Robustness Test", type="primary", key="run_cipher_robustness"):
+        mode = {"Gaussian Noise": "noise", "JPEG Compression": "jpeg", "Quantization": "quant"}[robustness_mode]
+        severity, psnr_values = run_robustness_batch(orig_img, cipher, k1, k2, mode=mode, levels=levels)
+        st.plotly_chart(plot_robustness_curve(severity, psnr_values, title), use_container_width=True)
 
     st.subheader("Three Corruption Stages and Their Decryption")
-
-    if st.button("Show 3 Corruption Samples", type="secondary"):
-        mode = {
-            "Gaussian Noise": "noise",
-            "JPEG Compression": "jpeg",
-            "Quantization": "quant"
-        }[robustness_mode]
-
+    if st.button("Show 3 Cipher Corruption Samples", type="secondary", key="show_cipher_samples"):
+        mode = {"Gaussian Noise": "noise", "JPEG Compression": "jpeg", "Quantization": "quant"}[robustness_mode]
         if mode == "noise":
             severities = [0.05, 0.2, 0.4]
-            samples = []
-            for s in severities:
-                corrupted = add_gaussian_noise(cipher, s)
-                recovered = np.clip(decrypt(corrupted, k1, k2), 0, 1)
-                psnr = calculate_psnr(orig_img, recovered)
-                samples.append((s, corrupted, recovered, psnr))
-
+            corrupt = add_gaussian_noise
         elif mode == "jpeg":
             severities = [75, 40, 15]
-            samples = []
-            for s in severities:
-                corrupted = jpeg_compress_complex(cipher, quality=s)
-                recovered = np.clip(decrypt(corrupted, k1, k2), 0, 1)
-                psnr = calculate_psnr(orig_img, recovered)
-                samples.append((s, corrupted, recovered, psnr))
-
+            corrupt = jpeg_compress_complex
         else:
             severities = [512, 128, 32]
-            samples = []
-            for s in severities:
-                corrupted = quantize_complex(cipher, levels=s)
-                recovered = np.clip(decrypt(corrupted, k1, k2), 0, 1)
-                psnr = calculate_psnr(orig_img, recovered)
-                samples.append((s, corrupted, recovered, psnr))
+            corrupt = quantize_complex
 
         cols = st.columns(3)
-        for i, (sev, corrupted, recovered, psnr) in enumerate(samples):
+        for i, severity in enumerate(severities):
+            corrupted = corrupt(cipher, severity)
+            recovered = np.clip(decrypt(corrupted, k1, k2), 0, 1)
+            psnr = calculate_psnr(orig_img, recovered)
             with cols[i]:
-                st.caption(f"Level {i + 1}: severity = {sev}")
+                st.caption(f"Level {i + 1}: severity = {severity}")
                 st.image(to_uint8(np.abs(corrupted)), caption="Corrupted ciphertext magnitude")
                 st.image(to_uint8(recovered), caption=f"Decrypted image (PSNR: {psnr:.2f} dB)")

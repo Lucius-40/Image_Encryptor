@@ -77,9 +77,30 @@ def render_steganography_embed_tab():
         if not preset_paths:
             st.warning("No preset covers are available. Upload a cover image instead.")
         else:
-            selected_path = st.selectbox(
-                "Choose a preset cover", preset_paths, format_func=lambda path: path.name, key="steg_preset_cover"
-            )
+            selected_cover_key = "steg_preset_cover"
+            selected_cover = st.session_state.get(selected_cover_key, str(preset_paths[0]))
+            if selected_cover not in {str(path) for path in preset_paths}:
+                selected_cover = str(preset_paths[0])
+
+            st.caption("Choose a cover preview")
+            preview_columns = st.columns(min(3, len(preset_paths)))
+            for index, path in enumerate(preset_paths):
+                with preview_columns[index % len(preview_columns)]:
+                    try:
+                        preview = _decode_rgb(path.read_bytes())
+                        st.image(preview, caption=path.name, use_container_width=True)
+                    except (OSError, ValueError) as error:
+                        st.error(f"Could not preview {path.name}: {error}")
+                    if st.button(
+                        "Selected" if selected_cover == str(path) else "Use this cover",
+                        key=f"steg_select_cover_{index}",
+                        use_container_width=True,
+                    ):
+                        selected_cover = str(path)
+                        st.session_state[selected_cover_key] = selected_cover
+
+            selected_path = Path(selected_cover)
+            st.caption(f"Selected cover: {selected_path.name}")
             cover_name = selected_path.name
             try:
                 cover = _decode_rgb(selected_path.read_bytes())
