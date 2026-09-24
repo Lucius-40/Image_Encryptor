@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 
 from core.drpe import generate_random_phase_mask, encrypt
 from core.utils import ciphertext_magnitude_for_display, to_uint8, compute_target_size
+from view.ui import operation_loader
 
 def _contrast_stretch(values, low=1, high=99):
     minimum, maximum = np.percentile(values, [low, high])
@@ -118,7 +119,7 @@ def render_encrypt_tab():
         
         # 3. Primary Action
         if st.button("Encrypt image", type="primary", use_container_width=True):
-            with st.spinner("Processing 2D Fast Fourier Transform..."):
+            with operation_loader("Encrypting image with double phase encoding..."):
                 if key_mode == "Demo Mode (Manual PIN)":
                     k1 = generate_random_phase_mask(img_norm.shape, seed=pin)
                     k2 = generate_random_phase_mask(img_norm.shape, seed=pin + 1)

@@ -5,6 +5,7 @@ import cv2
 from core.drpe import generate_random_phase_mask, decrypt
 from core.steganography_io import extract_cipher_from_png
 from core.utils import ciphertext_magnitude_for_display, to_uint8
+from view.ui import operation_loader
 
 def render_decrypt_tab():
     st.header("2. Decrypt a File")
@@ -78,7 +79,7 @@ def render_decrypt_tab():
             if valid_k1 is None or valid_k2 is None:
                 st.error("Cannot decrypt: No valid keys provided. Please upload your key file or enter a PIN.")
             else:
-                with st.spinner("Reversing 2D Fast Fourier Transform..."):
+                with operation_loader("Decrypting image and reconstructing the signal..."):
                     # Apply the attack toggle
                     k1_to_use = valid_k1
                     k2_to_use = generate_random_phase_mask(cipher.shape, seed=9999) if attack_mode else valid_k2

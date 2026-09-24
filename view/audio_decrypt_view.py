@@ -8,6 +8,7 @@ from core.audio_image_steganography import extract_audio_cipher_from_image
 from core.audio_utils import wav_bytes_from_float_audio
 from core.audio_steganography import extract_audio_cipher
 from core.steganography_io import decode_rgb_image
+from view.ui import operation_loader
 
 def render_audio_decrypt():
     st.header("Audio Signal Decryption (1D DRPE)")
@@ -75,7 +76,7 @@ def render_audio_decrypt():
 
     if can_run:
         if st.button("Decrypt audio", type="primary"):
-            with st.spinner("Reversing 1D Fast Fourier Transform..."):
+            with operation_loader("Decrypting the audio signal..."):
                 try:
                     if cipher_mode == "Ciphertext (.npy)":
                         cipher = np.load(cipher_file)

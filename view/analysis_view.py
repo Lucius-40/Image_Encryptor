@@ -13,6 +13,7 @@ from core.metrics import (
 )
 from core.utils import to_uint8
 from view.plots import plot_sensitivity_curve, plot_robustness_curve
+from view.ui import operation_loader
 
 def render_analysis_tab():
     st.header("3. Corruption Analysis")
@@ -53,7 +54,7 @@ def _render_key_corruption(orig_img, cipher, k1, k2):
     st.subheader("Generate Key Sensitivity Curve")
     batch_steps = st.slider("Sensitivity Batch Steps", min_value=10, max_value=200, value=50, step=10, key="key_sensitivity_steps")
     if st.button("Plot Key Sensitivity Curve", type="primary", key="plot_key_curve"):
-        with st.spinner(f"Running {batch_steps} decryptions..."):
+        with operation_loader(f"Running {batch_steps} decryption trials..."):
             magnitudes, psnr_values = run_sensitivity_batch(orig_img, cipher, k1, k2, steps=batch_steps)
             st.plotly_chart(plot_sensitivity_curve(magnitudes, psnr_values), use_container_width=True)
 

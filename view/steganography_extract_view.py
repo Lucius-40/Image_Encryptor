@@ -4,18 +4,9 @@ import numpy as np
 import streamlit as st
 
 from core.Steganography import extract_cipher_self_contained, extract_key_payload
+from core.steganography_io import decode_rgb_image, extract_cipher_from_png
 from core.utils import ciphertext_magnitude_for_display, to_uint8
-
-
-def _decode_rgb(file_bytes):
-    image = cv2.imdecode(np.frombuffer(file_bytes, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
-    if image is None:
-        raise ValueError("The selected file is not a readable PNG.")
-    if image.ndim == 2:
-        return cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-    if image.shape[2] == 4:
-        return cv2.cvtColor(image, cv2.COLOR_BGRA2RGB)
-    return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+from view.ui import operation_loader
 
 
 def _render_cipher_extract_tab():
@@ -44,7 +35,8 @@ def _render_cipher_extract_tab():
             return
 
         try:
-            stego, cipher = extract_cipher_from_png(uploaded_stego.getvalue())
+            with operation_loader("Extracting the hidden cipher from the PNG..."):
+                stego, cipher = extract_cipher_from_png(uploaded_stego.getvalue())
             st.session_state["steg_extract_result_v2"] = (stego, cipher)
         except Exception as error:
             st.error(f"Could not extract the cipher. Check that this is an intact PNG produced by the Embed panel: {error}")
@@ -105,7 +97,8 @@ def _render_key_extract_tab():
             st.error("Upload the key stego image before extracting the keys.")
         else:
             try:
-                key_payload = extract_key_payload(_decode_rgb(uploaded_key_stego.getvalue()))
+                with operation_loader("Recovering the encryption keys..."):
+                    key_payload = extract_key_payload(decode_rgb_image(uploaded_key_stego.getvalue()))
                 keys_data = np.load(io.BytesIO(key_payload), allow_pickle=True).item()
                 if not isinstance(keys_data, dict) or not {"key1", "key2"}.issubset(keys_data):
                     raise ValueError("The extracted payload does not contain key1 and key2.")
@@ -116,7 +109,7 @@ def _render_key_extract_tab():
     result = st.session_state.get("steg_extract_keys_result")
     if result is not None:
         image_bytes, key_payload = result
-        st.image(_decode_rgb(image_bytes), caption="Uploaded key stego image", use_container_width=True)
+        st.image(decode_rgb_image(image_bytes), caption="Uploaded key stego image", use_container_width=True)
         st.success("Encryption keys extracted successfully.")
         st.download_button(
             "Download extracted keys (.npy)",

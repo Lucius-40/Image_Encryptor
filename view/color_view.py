@@ -6,6 +6,7 @@ from core.rgb_dpre import generate_color_keys, encrypt_color, decrypt_color
 from core.drpe import generate_perturbed_key
 from core.metrics import calculate_psnr
 from core.utils import ciphertext_magnitude_for_display, to_uint8, compute_target_size
+from view.ui import operation_loader
 
 
 def render_color_tab():
@@ -38,8 +39,9 @@ def render_color_tab():
     img_norm = img_rgb.astype(np.float64) / 255.0
 
     if st.button("Generate Keys & Encrypt", type="primary", key="color_encrypt_btn"):
-        keys = generate_color_keys(img_norm.shape[:2], shared=shared, seed=seed)
-        cipher = encrypt_color(img_norm, keys)
+        with operation_loader("Encrypting RGB channels..."):
+            keys = generate_color_keys(img_norm.shape[:2], shared=shared, seed=seed)
+            cipher = encrypt_color(img_norm, keys)
 
         st.session_state['color_img_norm'] = img_norm
         st.session_state['color_keys'] = keys

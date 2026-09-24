@@ -19,15 +19,31 @@ def inject_custom_css(is_home=False):
         .stDeployButton {display:none;}
         .stButton>button {
             width: 100%;
-            border: 1px solid #E2E8F0 !important;
+            border: 1px solid #CBD5E1 !important;
             border-radius: 6px !important;
             background-color: #FFFFFF !important;
             color: #1E293B !important;
             min-height: 2.75rem;
+            transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
         }
         .stButton>button:hover {
-            border-color: #2563EB !important;
-            color: #2563EB !important;
+            border-color: #000000 !important;
+            background-color: #000000 !important;
+            color: #FFFFFF !important;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
+            transform: translateY(-1px);
+        }
+        .stButton>button:active {
+            background-color: #262626 !important;
+            color: #FFFFFF !important;
+            transform: translateY(0);
+            box-shadow: none;
+        }
+        .stButton>button:hover p,
+        .stButton>button:hover span,
+        .stButton>button:active p,
+        .stButton>button:active span {
+            color: #FFFFFF !important;
         }
         body:has(#landing-page) {
             background: #000000;
@@ -103,6 +119,61 @@ def inject_custom_css(is_home=False):
             margin-top: 1.5rem;
             color: #64748B;
             font-size: 1rem;
+        }
+        .operation-loader {
+            display: flex;
+            align-items: center;
+            gap: 0.9rem;
+            margin: 1rem 0 1.25rem;
+            padding: 0.8rem 1rem;
+            border: 1px solid #CBD5E1;
+            border-radius: 8px;
+            background: linear-gradient(110deg, #F8FAFC, #FFFFFF, #F8FAFC);
+            background-size: 200% 100%;
+            animation: loader-sheen 1.6s ease-in-out infinite;
+        }
+        .operation-loader__media {
+            display: grid;
+            width: 42px;
+            height: 42px;
+            place-items: center;
+            overflow: hidden;
+            border-radius: 6px;
+            background: #000000;
+        }
+        .operation-loader__media img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .operation-loader__message {
+            flex: 1;
+            color: #1E293B;
+            font-size: 0.92rem;
+            font-weight: 650;
+        }
+        .operation-loader__track {
+            width: 90px;
+            height: 4px;
+            overflow: hidden;
+            border-radius: 99px;
+            background: #E2E8F0;
+        }
+        .operation-loader__track span {
+            display: block;
+            width: 45%;
+            height: 100%;
+            border-radius: inherit;
+            background: #000000;
+            animation: loader-progress 0.9s ease-in-out infinite;
+        }
+        @keyframes loader-sheen {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        @keyframes loader-progress {
+            0% { transform: translateX(-110%); }
+            100% { transform: translateX(330%); }
         }
         body:has(#landing-page) section[data-testid="stMain"] {
             min-height: 100vh;

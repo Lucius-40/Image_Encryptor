@@ -12,7 +12,9 @@ from core.Steganography import (
     required_cover_pixels_bytes,
     required_cover_pixels_self_contained,
 )
+from core.steganography_io import decode_rgb_image
 from core.utils import ciphertext_magnitude_for_display, to_uint8
+from view.ui import operation_loader
 
 
 COVERS_DIR = Path(__file__).resolve().parent.parent / "app_assets" / "covers"
@@ -83,7 +85,7 @@ def _render_cipher_embed_tab():
             for index, path in enumerate(preset_paths):
                 with preview_columns[index % len(preview_columns)]:
                     try:
-                        preview = _decode_rgb(path.read_bytes())
+                        preview = decode_rgb_image(path.read_bytes())
                         st.image(preview, caption=path.name, use_container_width=True)
                     except (OSError, ValueError) as error:
                         st.error(f"Could not preview {path.name}: {error}")
@@ -144,7 +146,8 @@ def _render_cipher_embed_tab():
             st.error("Embedding was not attempted because the selected cover is too small.")
         else:
             try:
-                stego = embed_cipher_self_contained(cipher, _as_uint8_rgb(cover), lsb_depth=lsb_depth)
+                with operation_loader("Embedding the cipher into the cover image..."):
+                    stego = embed_cipher_self_contained(cipher, _as_uint8_rgb(cover), lsb_depth=lsb_depth)
                 st.session_state["steg_embed_result_v2"] = (cover, stego, cipher, cover_name)
             except (ValueError, TypeError) as error:
                 st.error(f"Could not embed the cipher: {error}")
@@ -244,7 +247,7 @@ def _render_key_embed_tab():
             for index, path in enumerate(preset_paths):
                 with preview_columns[index % len(preview_columns)]:
                     try:
-                        preview = _decode_rgb(path.read_bytes())
+                        preview = decode_rgb_image(path.read_bytes())
                         st.image(preview, caption=path.name, use_container_width=True)
                     except (OSError, ValueError) as error:
                         st.error(f"Could not preview {path.name}: {error}")
@@ -257,7 +260,7 @@ def _render_key_embed_tab():
                         st.session_state[selected_cover_key] = selected_cover
 
             try:
-                cover = _decode_rgb(Path(selected_cover).read_bytes())
+                cover = decode_rgb_image(Path(selected_cover).read_bytes())
             except (OSError, ValueError) as error:
                 st.error(f"Could not load the preset cover: {error}")
     else:
@@ -268,7 +271,7 @@ def _render_key_embed_tab():
         )
         if cover_file is not None:
             try:
-                cover = _decode_rgb(cover_file.getvalue())
+                cover = decode_rgb_image(cover_file.getvalue())
             except ValueError as error:
                 st.error(str(error))
 
@@ -293,15 +296,16 @@ def _render_key_embed_tab():
             st.error("Embedding was not attempted because the cover is too small.")
         else:
             try:
-                if embed_method == "Repeat pixels to fit":
-                    stego, scale = embed_key_payload_scaled(
-                        keys_payload,
-                        _as_uint8_rgb(cover),
-                        cv2.resize,
-                        lsb_depth=lsb_depth,
-                    )
-                else:
-                    stego = embed_key_payload(keys_payload, _as_uint8_rgb(cover), lsb_depth=lsb_depth)
+                with operation_loader("Hiding the encryption keys in the cover image..."):
+                    if embed_method == "Repeat pixels to fit":
+                        stego, scale = embed_key_payload_scaled(
+                            keys_payload,
+                            _as_uint8_rgb(cover),
+                            cv2.resize,
+                            lsb_depth=lsb_depth,
+                        )
+                    else:
+                        stego = embed_key_payload(keys_payload, _as_uint8_rgb(cover), lsb_depth=lsb_depth)
                 st.session_state["steg_key_embed_result"] = (cover, stego)
             except (ValueError, TypeError) as error:
                 st.error(f"Could not embed the keys: {error}")
