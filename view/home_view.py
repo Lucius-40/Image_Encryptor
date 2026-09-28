@@ -124,13 +124,44 @@ def inject_custom_css(is_home=False):
             display: flex;
             align-items: center;
             gap: 0.9rem;
-            margin: 1rem 0 1.25rem;
+            width: min(32rem, calc(100vw - 2rem));
             padding: 0.8rem 1rem;
             border: 1px solid #CBD5E1;
             border-radius: 8px;
-            background: linear-gradient(110deg, #F8FAFC, #FFFFFF, #F8FAFC);
-            background-size: 200% 100%;
-            animation: loader-sheen 1.6s ease-in-out infinite;
+            background: #FFFFFF;
+            box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+        }
+        .operation-loader-overlay {
+            position: fixed;
+            z-index: 999999;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.72);
+            backdrop-filter: blur(2px);
+        }
+        div[data-testid="stSpinner"] {
+            position: fixed !important;
+            z-index: 999999 !important;
+            inset: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            background: rgba(0, 0, 0, 0.72) !important;
+            backdrop-filter: blur(2px);
+        }
+        div[data-testid="stSpinner"] > div {
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.75rem;
+            max-width: min(32rem, calc(100vw - 2rem));
+            padding: 1rem 1.25rem;
+            border: 1px solid #CBD5E1;
+            border-radius: 8px;
+            background: #FFFFFF;
+            box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+            color: #1E293B;
         }
         .operation-loader__media {
             display: grid;
@@ -152,28 +183,21 @@ def inject_custom_css(is_home=False):
             font-size: 0.92rem;
             font-weight: 650;
         }
-        .operation-loader__track {
-            width: 90px;
-            height: 4px;
-            overflow: hidden;
-            border-radius: 99px;
-            background: #E2E8F0;
-        }
-        .operation-loader__track span {
-            display: block;
-            width: 45%;
-            height: 100%;
-            border-radius: inherit;
-            background: #000000;
-            animation: loader-progress 0.9s ease-in-out infinite;
+        .operation-loader__spinner {
+            width: 24px;
+            height: 24px;
+            flex: 0 0 24px;
+            border: 3px solid #E2E8F0;
+            border-top-color: #000000;
+            border-radius: 50%;
+            animation: loader-spin 0.8s linear infinite;
         }
         @keyframes loader-sheen {
             0%, 100% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
         }
-        @keyframes loader-progress {
-            0% { transform: translateX(-110%); }
-            100% { transform: translateX(330%); }
+        @keyframes loader-spin {
+            to { transform: rotate(360deg); }
         }
         body:has(#landing-page) section[data-testid="stMain"] {
             min-height: 100vh;
